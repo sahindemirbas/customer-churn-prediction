@@ -1,0 +1,8 @@
+pandas>=1.4
+numpy>=1.21
+scikit-learn>=1.0
+matplotlib>=3.5
+seaborn>=0.11
+# eda-kit is the EDA/ML toolkit used in this repo:
+# pip install git+https://github.com/sahindemirbas/eda-kit.git
+jupyter>=1.0

@@ -1,0 +1,29 @@
+# Byte-compiled / caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Notebooks checkpoints
+.ipynb_checkpoints/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+
+# Large data files (downloaded on first run)
+data/*.csv
+data/*.xlsx
+data/*.zip
