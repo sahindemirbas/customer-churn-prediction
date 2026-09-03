@@ -28,7 +28,7 @@ This project answers both: a Random Forest predicts churn with a **ROC-AUC of 0.
 
 | Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
 |-------|----------|-----------|--------|-----|---------|
-| Baseline (dummy) | 0.734 | — | 0 | 0 | 0.500 |
+| Baseline (dummy) | 0.734 | n/a | 0 | 0 | 0.500 |
 | **Random Forest** | **0.795** | 0.645 | 0.505 | 0.567 | **0.836** |
 
 > Accuracy alone is misleading on an imbalanced target (~26% churn), which is why ROC-AUC is the headline metric. The model lifts ROC-AUC from 0.50 (dummy) to **0.84**, a strong, decision-useful signal.
