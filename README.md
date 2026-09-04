@@ -26,12 +26,19 @@ This project answers both: a Random Forest predicts churn with a **ROC-AUC of 0.
 
 ## Results
 
+Metrics are reported as **stratified 5-fold cross-validation means** (mean +/- 1 std across folds), not from a single lucky split. Cross-validating the model across balanced folds makes the numbers far harder to dismiss as split-dependent. The single 80/20 hold-out numbers are shown in parentheses.
+
 | Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
 |-------|----------|-----------|--------|-----|---------|
-| Baseline (dummy) | 0.734 | n/a | 0 | 0 | 0.500 |
-| **Random Forest** | **0.795** | 0.645 | 0.505 | 0.567 | **0.836** |
+| Baseline (dummy) | 0.734 | 0.000 | 0.000 | 0.000 | 0.500 |
+| **Random Forest (CV)** | **0.805 +/- 0.006** | 0.677 +/- 0.020 | 0.512 +/- 0.003 | 0.583 +/- 0.009 | **0.845 +/- 0.004** |
+| Random Forest (hold-out) | 0.795 | 0.645 | 0.505 | 0.567 | 0.836 |
 
-> Accuracy alone is misleading on an imbalanced target (~26% churn), which is why ROC-AUC is the headline metric. The model lifts ROC-AUC from 0.50 (dummy) to **0.84**, a strong, decision-useful signal.
+The low fold-to-fold variance (e.g. ROC-AUC 0.845 +/- 0.004) shows the result is stable, not an artefact of one data split.
+
+![cross-validated stability](results/cv_stability.png)
+
+> Accuracy alone is misleading on an imbalanced target (~26% churn), which is why ROC-AUC is the headline metric. The dummy classifier that simply predicts the majority class scores 0.500 ROC-AUC and 0.000 F1 (it never finds a churner). Random Forest lifts ROC-AUC to **0.845** while keeping an F1 of **0.583**, i.e. it actually separates churners from stayers rather than just guessing the common class.
 
 ## What actually drives churn
 
@@ -84,7 +91,8 @@ The notebook and `src/train_model.py` both use the same `eda-kit` helpers:
 5. **Stratified train/test split**: 80/20, class balance preserved
 6. **Baseline first**: a dummy classifier establishes the floor
 7. **Random Forest**: tuned architecture, evaluated on the held-out test set
-8. **Interpretation**: `ek.plot_importance` turns the model back into business insight
+8. **Stratified 5-fold cross-validation**: repeats the fit across balanced folds to report mean +/- std per metric
+9. **Interpretation**: `ek.plot_importance` turns the model back into business insight
 
 ## Author
 

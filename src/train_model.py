@@ -29,7 +29,11 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import (
+    StratifiedKFold,
+    cross_validate,
+    train_test_split,
+)
 
 import eda_kit as ek
 
@@ -99,6 +103,44 @@ def evaluate(model, X_te, y_te) -> dict:
     }
 
 
+SCORING = {
+    "accuracy": "accuracy",
+    "precision": "precision",
+    "recall": "recall",
+    "f1": "f1",
+    "roc_auc": "roc_auc",
+}
+
+
+def cv_report(model, X, y, folds: int = 5, seed: int = 42):
+    """Stratified K-fold cross-validated metrics.
+
+    Returns (summary_df, fold_df) where summary_df holds mean +/- std per
+    metric and fold_df holds every per-fold score (for stability plots).
+
+    A single train/test split can be lucky (or unlucky). Cross-validation
+    repeats the fit across K balanced folds, so the reported metrics carry
+    a variance estimate and are far harder to dismiss as split-dependent.
+    """
+    cv = StratifiedKFold(n_splits=folds, shuffle=True, random_state=seed)
+    scores = cross_validate(model, X, y, cv=cv, scoring=SCORING, n_jobs=-1)
+    rows = []
+    fold_rows = []
+    for i in range(folds):
+        fold_rows.append({"fold": i + 1, **{m: scores[f"test_{m}"][i] for m in SCORING}})
+    for name in SCORING:
+        vals = scores[f"test_{name}"]
+        rows.append(
+            {
+                "metric": name,
+                "mean": vals.mean(),
+                "std": vals.std(),
+                "folds": folds,
+            }
+        )
+    return pd.DataFrame(rows), pd.DataFrame(fold_rows)
+
+
 def plot_confusion(model, X_te, y_te, path: Path) -> None:
     cm = confusion_matrix(y_te, model.predict(X_te))
     fig, ax = plt.subplots(figsize=(5, 4))
@@ -157,6 +199,53 @@ def main() -> None:
     ).fit(X_tr, y_tr)
     metrics = evaluate(model, X_te, y_te)
     print(metrics)
+
+    print("=" * 60)
+    print("STRATIFIED 5-FOLD CROSS-VALIDATION")
+    print("=" * 60)
+    # repeat both models across K stratified folds on the full feature set
+    cv_base, cv_base_fold = cv_report(DummyClassifier(strategy="most_frequent"), X, y)
+    cv_rf, cv_rf_fold = cv_report(model, X, y)
+    cv_base["model"] = "Baseline"
+    cv_rf["model"] = "RandomForest"
+    cv_all = pd.concat([cv_base, cv_rf], ignore_index=True)
+    cv_all = cv_all[["model", "metric", "mean", "std", "folds"]]
+    cv_all.to_csv(RESULTS / "metrics_cv.csv", index=False)
+    # readable console summary
+    piv = cv_all.pivot(index="metric", columns="model", values="mean")
+    piv_std = cv_all.pivot(index="metric", columns="model", values="std")
+    for metric in SCORING:
+        print(
+            f"  {metric:10s}  RF {piv.loc[metric, 'RandomForest']:.3f} +/- "
+            f"{piv_std.loc[metric, 'RandomForest']:.3f}   |   "
+            f"Baseline {piv.loc[metric, 'Baseline']:.3f}"
+        )
+    print("cv metrics saved ->", RESULTS / "metrics_cv.csv")
+
+    # stability plot: per-fold ROC-AUC and F1 for the RF across folds
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    for ax, metric, ylim in zip(
+        axes, ["roc_auc", "f1"], [(0.7, 0.9), (0.45, 0.7)]
+    ):
+        vals = cv_rf_fold[metric].values
+        ax.plot(range(1, len(vals) + 1), vals, "o-", color="#2c6e6c", lw=1.6)
+        ax.axhline(vals.mean(), color="#e07b39", ls="--", lw=1.2,
+                   label=f"mean {vals.mean():.3f}")
+        ax.fill_between(
+            range(1, len(vals) + 1),
+            vals.mean() - vals.std(),
+            vals.mean() + vals.std(),
+            color="#2c6e6c", alpha=0.15, label="+/- 1 std",
+        )
+        ax.set_title(f"Cross-validated {metric.upper()} per fold (5-fold)")
+        ax.set_xlabel("Fold")
+        ax.set_ylim(*ylim)
+        ax.legend(frameon=False)
+        ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(RESULTS / "cv_stability.png", dpi=150)
+    plt.close(fig)
+    print("stability plot saved ->", RESULTS / "cv_stability.png")
 
     # persist metrics
     metrics_df = pd.DataFrame([base_metrics, metrics], index=["Baseline", "RandomForest"])
